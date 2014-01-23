@@ -1,10 +1,9 @@
 import argparse
-import json
 import serial
 import socket
 import struct
 import sys
-import pygame
+import pickle
 
 def get_motor_packet(left_speed, right_speed):
   """
@@ -32,45 +31,24 @@ def get_motor_packet(left_speed, right_speed):
 
   return struct.pack('BBBBBB', ord('H'), ord('B'), left_mode, left_command, right_mode, right_command)
 
-def get_xbox_state(joystick):
-  joystick_state = {}
-  joystick_state['a_button']           = joystick.get_button(0)
-  joystick_state['b_button']           = joystick.get_button(1)
-  joystick_state['x_button']           = joystick.get_button(2)
-  joystick_state['y_button']           = joystick.get_button(3)
-  joystick_state['left_button']        = joystick.get_button(4)
-  joystick_state['right_button']       = joystick.get_button(5)
-  joystick_state['back_button']        = joystick.get_button(6)
-  joystick_state['start_button']       = joystick.get_button(7)
-  joystick_state['center_button']      = joystick.get_button(8)
-  joystick_state['left_stick_button']  = joystick.get_button(9)
-  joystick_state['right_stick_button'] = joystick.get_button(10)
-  joystick_state['left_axis_x']        = joystick.get_axis(0)
-  joystick_state['left_axis_y']        = joystick.get_axis(1)
-  joystick_state['right_axis_x']       = joystick.get_axis(2)
-  joystick_state['right_axis_y']       = joystick.get_axis(3)
-  joystick_state['right_trigger']      = joystick.get_axis(4)
-  joystick_state['left_trigger']       = joystick.get_axis(5)
-  return joystick_state
-
 if __name__ == "__main__":
   argparser = argparse.ArgumentParser()
   argparser.add_argument('--tty', nargs=1, help='Serial port')
   argparser.add_argument('--baud', nargs=1, help='Serial baud rate')
+  argparser.add_argument('--listen', nargs=1, help='IP:PORT of host that sends the joystick data')
   args = argparser.parse_args(sys.argv[1:])
 
   serial_port      = args.tty[0]
   serial_baud      = args.baud[0]
+  udp_ip, udp_port = args.listen[0].split(':')
 
-  serial = serial.Serial(serial_port, serial_baud, timeout=1)
-
-  pygame.init()
-  joystick = pygame.joystick.Joystick(0)
-  joystick.init()
+  #serial = serial.Serial(serial_port, serial_baud, timeout=1)
+  sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+  sock.bind((udp_ip, int(udp_port)))
 
   while True:
-    pygame.event.pump()
-    js_state = get_xbox_state(joystick)
+    data, addr = sock.recvfrom(1024)
+    js_state = pickle.loads(data)
 
     speed = -js_state['left_axis_y']
     turn = js_state['right_axis_x']
