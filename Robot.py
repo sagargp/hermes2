@@ -42,13 +42,21 @@ if __name__ == "__main__":
   serial_baud      = args.baud[0]
   udp_ip, udp_port = args.listen[0].split(':')
 
-  #serial = serial.Serial(serial_port, serial_baud, timeout=1)
+  serial = serial.Serial(serial_port, serial_baud, timeout=1)
   sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
   sock.bind((udp_ip, int(udp_port)))
 
-  while True:
+  running = True
+  while running:
     data, addr = sock.recvfrom(1024)
     js_state = pickle.loads(data)
+
+    if js_state['back_button']:
+      serial.write(get_motor_packet(0, 0))
+      running = False
+
+    if js_state['start_button']:
+      serial.write(get_motor_packet(0, 0))
 
     speed = -js_state['left_axis_y']
     turn = js_state['right_axis_x']
@@ -65,3 +73,4 @@ if __name__ == "__main__":
     if abs(right_motor) < 90: right_motor = 0
 
     serial.write(get_motor_packet(left_motor, right_motor))
+  serial.close()
