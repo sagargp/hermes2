@@ -1,9 +1,15 @@
+import time
 import argparse
 import serial
 import socket
 import struct
 import sys
 import pickle
+
+def get_voltage(s):
+  s.write("VO")
+  voltage = s.read(2) # read two bytes
+  return ord(voltage[0]) * 256 + ord(voltage[1])
 
 def get_motor_packet(left_speed, right_speed):
   """
@@ -46,31 +52,50 @@ if __name__ == "__main__":
   sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
   sock.bind((udp_ip, int(udp_port)))
 
-  running = True
-  while running:
-    data, addr = sock.recvfrom(1024)
-    js_state = pickle.loads(data)
+  speed_locked = False
+  last_locked  = time.time()
+  speed        = None
+  turn         = None
+  left_motor   = None
+  right_motor  = None
+  running      = True
+  try:
+    while running:
+      data, addr = sock.recvfrom(1024)
+      js_state = pickle.loads(data)
 
-    if js_state['back_button']:
-      serial.write(get_motor_packet(0, 0))
-      running = False
+      if js_state['back_button']:
+        serial.write(get_motor_packet(0, 0))
+        running = False
 
-    if js_state['start_button']:
-      serial.write(get_motor_packet(0, 0))
+      if js_state['start_button']:
+        serial.write(get_motor_packet(0, 0))
 
-    speed = -js_state['left_axis_y']
-    turn = js_state['right_axis_x']
+      if js_state['left_stick_button'] and time.time() - last_locked > 0.5:
+        speed_locked = not speed_locked
+        last_locked = time.time()
+        print "Toggling speed lock"
 
-    left_motor  = int((speed + turn) * 255)
-    right_motor = int((speed - turn) * 255)
+      if js_state['b_button']:
+        voltage = get_voltage(serial)
+        print "Voltage reads as: %d (%f)" % (voltage, voltage/65.)
 
-    if left_motor > 255: left_motor = 255
-    if left_motor < -255: left_motor = -255
-    if right_motor > 255: right_motor = 255
-    if right_motor < -255: right_motor = -255
+      if not speed_locked:
+        speed = -js_state['left_axis_y']
+        turn = js_state['right_axis_x']
 
-    if abs(left_motor) < 90: left_motor = 0
-    if abs(right_motor) < 90: right_motor = 0
+        left_motor  = int((speed + turn) * 255)
+        right_motor = int((speed - turn) * 255)
 
-    serial.write(get_motor_packet(left_motor, right_motor))
-  serial.close()
+        if left_motor > 255: left_motor = 255
+        if left_motor < -255: left_motor = -255
+        if right_motor > 255: right_motor = 255
+        if right_motor < -255: right_motor = -255
+
+        if abs(left_motor) < 90: left_motor = 0
+        if abs(right_motor) < 90: right_motor = 0
+      serial.write(get_motor_packet(left_motor, right_motor))
+  except:
+    print "Killed"
+  finally:
+    serial.close()
