@@ -19,8 +19,8 @@ def get_xbox_state(joystick):
   joystick_state['right_stick_button'] = joystick.get_button(10)
   joystick_state['left_axis_x']        = joystick.get_axis(0)
   joystick_state['left_axis_y']        = joystick.get_axis(1)
-  joystick_state['right_axis_x']       = joystick.get_axis(2)
-  joystick_state['right_axis_y']       = joystick.get_axis(3)
+  joystick_state['right_axis_y']       = joystick.get_axis(2)
+  joystick_state['right_axis_x']       = joystick.get_axis(3)
   joystick_state['right_trigger']      = joystick.get_axis(4)
   joystick_state['left_trigger']       = joystick.get_axis(5)
   return joystick_state
