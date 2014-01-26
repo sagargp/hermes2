@@ -64,7 +64,7 @@ if __name__ == "__main__":
       data, addr = sock.recvfrom(1024)
       js_state = pickle.loads(data)
 
-      if js_state['back_button']:
+      if js_state['start_button']:
         serial.write(get_motor_packet(0, 0))
         running = False
 
