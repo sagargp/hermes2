@@ -11,14 +11,23 @@ class Fifo
   private:
     int m_size;
 
-    fifo_node<T> *front;
-    fifo_node<T> *back;
+    fifo_node<T> *m_front;
+    fifo_node<T> *m_back;
 
   public:
+    Fifo();
     fifo_node<T> *dequeue(void);
     void enqueue(T value);
     int available();
 };
+
+template <class T>
+Fifo<T>::Fifo() :
+  m_front(NULL),
+  m_back(NULL),
+  m_size(0)
+{
+}
 
 template <class T>
 void Fifo<T>::enqueue(T value)
@@ -26,16 +35,16 @@ void Fifo<T>::enqueue(T value)
   fifo_node<T> *temp = new fifo_node<T>;
   temp->value = value;
 
-  if (front == NULL)
+  if (m_front == NULL)
   {
-    front = temp;
-    back = temp;
-    m_size = 0;
+    m_front = temp;
+    m_back = temp;
+    m_size = 1;
   }
   else
   {
-    back->next = temp;
-    back = temp;
+    m_back->next = temp;
+    m_back = temp;
     m_size++;
   }
 }
@@ -43,16 +52,16 @@ void Fifo<T>::enqueue(T value)
 template <class T>
 fifo_node<T> *Fifo<T>::dequeue()
 {
-  fifo_node<T> *temp = front;
+  fifo_node<T> *temp = m_front;
 
-  if (front != NULL)
+  if (m_front != NULL)
   {
-    front = front->next;
+    m_front = m_front->next;
     m_size--;
   }
   else
   {
-    back = NULL;
+    m_back = NULL;
     m_size = 0;
   }
   return temp;
