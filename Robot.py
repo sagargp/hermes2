@@ -80,6 +80,11 @@ if __name__ == "__main__":
         voltage = get_voltage(serial)
         print "Voltage reads as: %d (%f)" % (voltage, voltage/65.)
 
+      # Change mode to i2c. After this nothing will work any more!
+      if js_state['back_button']:
+        serial.write("CH")
+        print "Changed mode."
+
       if not speed_locked:
         speed = -js_state['left_axis_y']
         turn = js_state['right_axis_x']
