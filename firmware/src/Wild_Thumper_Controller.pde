@@ -5,6 +5,7 @@
 #include "fifo.h"
 
 //-------------------------------------------------------------- define global variables --------------------------------------------
+int Cmode = CMODE;
 unsigned int Volts;
 unsigned int LeftAmps;
 unsigned int RightAmps;
@@ -63,19 +64,14 @@ void setup()
   pinMode (Charger,OUTPUT);                                   // change Charger pin to output
   digitalWrite (Charger,1);                                   // disable current regulator to charge battery
 
-  if (Cmode == 1) 
+  if (Cmode == CMODE_SERIAL) 
   {
     Serial.begin(Brate);                                      // enable serial communications if Cmode=1
     Serial.flush();                                           // flush buffer
   } 
-  else if (Cmode == 2)
+  else if (Cmode == CMODE_I2C)
   {
-    // initialize i2c as slave
-    Wire.begin(I2C_ADDR);
-
-    // set up i2c callbacks
-    Wire.onReceive(receiveI2C);
-    Wire.onRequest(sendI2C);
+    init_i2c();
   }
 }
 
@@ -200,6 +196,16 @@ void loop()
   }
 }
 
+void init_i2c()
+{
+  // initialize i2c as slave
+  Wire.begin(I2C_ADDR);
+
+  // set up i2c callbacks
+  Wire.onReceive(receiveI2C);
+  Wire.onRequest(sendI2C);
+}
+
 void SCmode()
 {
   // ------------------------------------------------------------ Code for Serial Communications --------------------------------------
@@ -216,22 +222,29 @@ void I2Cmode()
   //----------------------------------------------------------- Your code goes here ------------------------------------------------------------
   if (i2c_read_bytes.available() > 1)
   {
-    byte A = i2c_read_bytes.dequeue()->value;
-    byte B = i2c_read_bytes.dequeue()->value;
+    byte A = read_one();
+    byte B = read_one();
     processCommand(A, B);
   }
 }
 
+// Incoming i2c data callback
 void receiveI2C(int byteCount)
 {
-  for (int i = 0; i < byteCount; i++)
+  int count = byteCount;
+  while (count--)
     i2c_read_bytes.enqueue(Wire.read());
 }
 
+// Request for i2c data callback
 void sendI2C()
 {
-  while (i2c_write_bytes.available())
+  if (i2c_write_bytes.available())
     Wire.write(i2c_write_bytes.dequeue()->value);
+  else
+  {
+    Wire.write(-1);
+  }
 }
 
 void flush()
@@ -240,7 +253,7 @@ void flush()
   {
     Serial.flush();
   }
-  else if (Cmode == CMODE_SERIAL)
+  else if (Cmode == CMODE_I2C)
   {
     while (i2c_write_bytes.available())
       i2c_write_bytes.dequeue();
@@ -278,6 +291,7 @@ byte read_one()
 
 void processCommand(byte A, byte B)
 {
+  // CH = Change to i2c mode
   // VO = get voltage
   // FL = flush serial buffer
   // AN = report Analog inputs 1-5
@@ -291,6 +305,14 @@ void processCommand(byte A, byte B)
   int command = A*256+B;
   switch (command)
   {
+    // This is "CH"; change mode to I2C
+    case 17224:
+      Cmode = CMODE_I2C;
+      init_i2c();
+
+      Serial.write("Mode changed.\n");
+      break;
+
     // This is "VO"; a request for voltage
     case 22095:
       // read the battery voltage (reads 65 for every volt)
@@ -304,12 +326,12 @@ void processCommand(byte A, byte B)
       flush();
       break;
 
-    // This is "AN"; request for the value of hte analog pins 1-5
+    // This is "AN"; request for the value of the analog pins 1-5
     case 16718:
       for (int i = 1; i < 6; i++)
       {
         // Read the 10-bit analog input
-        data = analogRead(i);                                 // read 10bit analog input 
+        data = analogRead(i);
         
         // Write each byte one at a time
         write(highByte(data));

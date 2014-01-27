@@ -3,7 +3,7 @@
 #define CMODE_SERIAL         1
 #define CMODE_I2C            2
 
-#define Cmode     CMODE_SERIAL     // Sets communication mode: 0=RC    1=Serial    2=I2C
+#define CMODE     CMODE_SERIAL     // Sets communication mode: 0=RC    1=Serial    2=I2C
 #define Brate             9600     // Baud rate for serial communications
 #define I2C_ADDR          0x04     // Address for I2C
 
