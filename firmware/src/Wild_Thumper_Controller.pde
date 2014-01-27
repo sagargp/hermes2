@@ -28,8 +28,8 @@ int RightPWM;                                                 // PWM value for r
 int data;
 int servo[7];
 
-Fifo<byte> i2c_write_bytes;
-Fifo<byte> i2c_read_bytes;
+Fifo<int> i2c_incoming_buffer;
+Fifo<int> i2c_outgoing_buffer;
 
 //-------------------------------------------------------------- define servos ------------------------------------------------------
 Servo Servo0;                                                 // define servos
@@ -208,22 +208,20 @@ void init_i2c()
 
 void SCmode()
 {
-  // ------------------------------------------------------------ Code for Serial Communications --------------------------------------
   if (Serial.available() > 1)
   {
-    byte A = Serial.read();
-    byte B = Serial.read();
+    int A = Serial.read();
+    int B = Serial.read();
     processCommand(A, B);
   }
 }
 
 void I2Cmode()
 {
-  //----------------------------------------------------------- Your code goes here ------------------------------------------------------------
-  if (i2c_read_bytes.available() > 1)
+  if (i2c_incoming_buffer.available() > 1)
   {
-    byte A = read_one();
-    byte B = read_one();
+     int A = read_one();
+     int B = read_one();
     processCommand(A, B);
   }
 }
@@ -233,14 +231,14 @@ void receiveI2C(int byteCount)
 {
   int count = byteCount;
   while (count--)
-    i2c_read_bytes.enqueue(Wire.read());
+    i2c_incoming_buffer.enqueue(Wire.read());
 }
 
 // Request for i2c data callback
 void sendI2C()
 {
-  if (i2c_write_bytes.available())
-    Wire.write(i2c_write_bytes.dequeue()->value);
+  if (i2c_outgoing_buffer.available())
+    Wire.write(i2c_outgoing_buffer.dequeue()->value);
   else
   {
     Wire.write(-1);
@@ -255,11 +253,11 @@ void flush()
   }
   else if (Cmode == CMODE_I2C)
   {
-    while (i2c_write_bytes.available())
-      i2c_write_bytes.dequeue();
+    while (i2c_outgoing_buffer.available())
+      i2c_outgoing_buffer.dequeue();
 
-    while (i2c_read_bytes.available())
-      i2c_read_bytes.dequeue();
+    while (i2c_incoming_buffer.available())
+      i2c_incoming_buffer.dequeue();
   }
 }
 
@@ -268,10 +266,10 @@ void write(byte b)
   if (Cmode == CMODE_SERIAL)
     Serial.write(b);
   else if (Cmode == CMODE_I2C)
-    i2c_write_bytes.enqueue(b);
+    i2c_outgoing_buffer.enqueue(b);
 }
 
-byte read_one()
+int read_one()
 {
   if (Cmode == CMODE_SERIAL)
   {
@@ -283,8 +281,8 @@ byte read_one()
   }
   else if (Cmode == CMODE_I2C)
   {
-    while (!i2c_read_bytes.available());
-    data = i2c_read_bytes.dequeue()->value;
+    while (!i2c_incoming_buffer.available());
+    data = i2c_incoming_buffer.dequeue()->value;
     return data;
   }
 }
