@@ -1,11 +1,14 @@
 #include <Servo.h>
 #include <Wire.h>
+
 #include "IOpins.h"
 #include "Constants.h"
 #include "fifo.h"
 
-//-------------------------------------------------------------- define global variables --------------------------------------------
 int Cmode = CMODE;
+Fifo<int> i2c_incoming_buffer;
+Fifo<int> i2c_outgoing_buffer;
+
 unsigned int Volts;
 unsigned int LeftAmps;
 unsigned int RightAmps;
@@ -14,60 +17,60 @@ unsigned long leftoverload;
 unsigned long rightoverload;
 int highVolts;
 int startVolts;
-int Leftspeed=0;
-int Rightspeed=0;
+
+int Leftspeed  = 0;
+int Rightspeed = 0;
 int Speed;
 int Steer;
-byte Charged=1;                                               // 0=Flat battery  1=Charged battery
-int Leftmode=1;                                               // 0=reverse, 1=brake, 2=forward
-int Rightmode=1;                                              // 0=reverse, 1=brake, 2=forward
-byte Leftmodechange=0;                                        // Left input must be 1500 before brake or reverse can occur
-byte Rightmodechange=0;                                       // Right input must be 1500 before brake or reverse can occur
-int LeftPWM;                                                  // PWM value for left  motor speed / brake
-int RightPWM;                                                 // PWM value for right motor speed / brake
-int data;
+
+byte Charged         = 1; // 0=Flat battery  1=Charged battery
+int Leftmode         = 1; // 0=reverse, 1=brake, 2=forward
+int Rightmode        = 1; // 0=reverse, 1=brake, 2=forward
+byte Leftmodechange  = 0; // Left input must be 1500 before brake or reverse can occur
+byte Rightmodechange = 0; // Right input must be 1500 before brake or reverse can occur
+
+int LeftPWM;  // PWM value for left  motor speed / brake
+int RightPWM; // PWM value for right motor speed / brake
+
+// define servos
+Servo Servo0;
+Servo Servo1;
+Servo Servo2;
+Servo Servo3;
+Servo Servo4;
+Servo Servo5;
+Servo Servo6;
 int servo[7];
-
-Fifo<int> i2c_incoming_buffer;
-Fifo<int> i2c_outgoing_buffer;
-
-//-------------------------------------------------------------- define servos ------------------------------------------------------
-Servo Servo0;                                                 // define servos
-Servo Servo1;                                                 // define servos
-Servo Servo2;                                                 // define servos
-Servo Servo3;                                                 // define servos
-Servo Servo4;                                                 // define servos
-Servo Servo5;                                                 // define servos
-Servo Servo6;                                                 // define servos
 
 void setup()
 {
-  //------------------------------------------------------------ Initialize Servos ----------------------------------------------------
-  Servo0.attach(S0);                                          // attach servo to I/O pin
-  Servo1.attach(S1);                                          // attach servo to I/O pin
-  Servo2.attach(S2);                                          // attach servo to I/O pin
-  Servo3.attach(S3);                                          // attach servo to I/O pin
-  Servo4.attach(S4);                                          // attach servo to I/O pin
-  Servo5.attach(S5);                                          // attach servo to I/O pin
-  Servo6.attach(S6);                                          // attach servo to I/O pin
+  // Attach all the servos
+  Servo0.attach(S0);
+  Servo1.attach(S1);
+  Servo2.attach(S2);
+  Servo3.attach(S3);
+  Servo4.attach(S4);
+  Servo5.attach(S5);
+  Servo6.attach(S6);
 
-  //------------------------------------------------------------ Set servos to default position ---------------------------------------
-  Servo0.writeMicroseconds(DServo0);                          // set servo to default position
-  Servo1.writeMicroseconds(DServo1);                          // set servo to default position
-  Servo2.writeMicroseconds(DServo2);                          // set servo to default position
-  Servo3.writeMicroseconds(DServo3);                          // set servo to default position
-  Servo4.writeMicroseconds(DServo4);                          // set servo to default position
-  Servo5.writeMicroseconds(DServo5);                          // set servo to default position
-  Servo6.writeMicroseconds(DServo6);                          // set servo to default position
+  // Set servos to default positions
+  Servo0.writeMicroseconds(DSERVO0);
+  Servo1.writeMicroseconds(DSERVO1);
+  Servo2.writeMicroseconds(DSERVO2);
+  Servo3.writeMicroseconds(DSERVO3);
+  Servo4.writeMicroseconds(DSERVO4);
+  Servo5.writeMicroseconds(DSERVO5);
+  Servo6.writeMicroseconds(DSERVO6);
 
-  //------------------------------------------------------------ Initialize I/O pins --------------------------------------------------
-  pinMode (Charger,OUTPUT);                                   // change Charger pin to output
-  digitalWrite (Charger,1);                                   // disable current regulator to charge battery
+  // Initialize the IO pins
+  pinMode(Charger, OUTPUT); // change Charger pin to output
+  digitalWrite(Charger, 1); // disable current regulator to charge battery
 
+  // Setup the comms
   if (Cmode == CMODE_SERIAL) 
   {
-    Serial.begin(Brate);                                      // enable serial communications if Cmode=1
-    Serial.flush();                                           // flush buffer
+    Serial.begin(Brate);
+    Serial.flush();
   } 
   else if (Cmode == CMODE_I2C)
   {
@@ -77,153 +80,148 @@ void setup()
 
 void loop()
 {
-  //------------------------------------------------------------ Check battery voltage and current draw of motors ---------------------
-  Volts     = analogRead(Battery);                            // read the battery voltage
-  LeftAmps  = analogRead(LmotorC);                            // read left motor current draw
-  RightAmps = analogRead(RmotorC);                            // read right motor current draw
-
-  if (LeftAmps>Leftmaxamps)                                   // is motor current draw exceeding safe limit
+  // Check battery voltage and current draw of motors
+  Volts     = analogRead(Battery);
+  LeftAmps  = analogRead(LmotorC);
+  RightAmps = analogRead(RmotorC);
+  
+  // Is the left motor current draw exceeding safe limit? Then turn off the motors and record the time
+  if (LeftAmps > LEFTMAXAMPS)
   {
-    analogWrite(LmotorA,0);                                  // turn off motors
-    analogWrite(LmotorB,0);                                  // turn off motors
-    leftoverload=millis();                                    // record time of overload
+    analogWrite(LmotorA, 0);
+    analogWrite(LmotorB, 0);
+    leftoverload = millis();
   }
 
-  if (RightAmps>Rightmaxamps)                                 // is motor current draw exceeding safe limit
+  // Is the right motor current draw exceeding safe limit? Then turn off the motors and record the time
+  if (RightAmps > RIGHTMAXAMPS)
   {
-    analogWrite (RmotorA,0);                                  // turn off motors
-    analogWrite (RmotorB,0);                                  // turn off motors
-    rightoverload=millis();                                   // record time of overload
+    analogWrite(RmotorA, 0);
+    analogWrite(RmotorB, 0);
+    rightoverload = millis();
   }
 
-  if ((Volts<lowvolt) && (Charged==1))                        // check condition of the battery
-  {                                                           // change battery status from charged to flat
-    //---------------------------------------------------------- FLAT BATTERY speed controller shuts down until battery is recharged ----
-    //---------------------------------------------------------- This is a safety feature to prevent malfunction at low voltages!! ------
-    Charged=0;                                                // battery is flat
-    highVolts=Volts;                                          // record the voltage
-    startVolts=Volts;
-    chargeTimer=millis();                                     // record the time
+  // Check the voltage of the battery
+  if ((Volts < LOWVOLT) && (Charged == 1))
+  {
+    // If it's too low, change the status of the battery to "flat".
+    // This will shut down the speed controller until the battery is charged again.
+    Charged     = 0; // "flat"
+    highVolts   = Volts;
+    startVolts  = Volts;
+    chargeTimer = millis();
 
-    digitalWrite (Charger,0);                                 // enable current regulator to charge battery
+    // enable current regulator to charge battery
+    digitalWrite(Charger, 0);
   }
 
-  //------------------------------------------------------------ CHARGE BATTERY -------------------------------------------------------
-  if ((Charged==0) && (Volts-startVolts>67))                  // if battery is flat and charger has been connected (voltage has increased by at least 1V)
+  // Charge the battery if the battery is flat and a charger is plugged in (measured voltage is at least 1V higher than last recorded voltage)
+  if ((Charged == 0) && (Volts-startVolts > 67))
   {
-    if (Volts>highVolts)                                      // has battery voltage increased?
+    // Record the highest voltage at all times (used to detect peak charging)
+    if (Volts > highVolts)
     {
-      highVolts=Volts;                                        // record the highest voltage. Used to detect peak charging.
-      chargeTimer=millis();                                   // when voltage increases record the time
+      highVolts   = Volts;
+      chargeTimer = millis();
     }
 
-    if (Volts>batvolt)                                        // battery voltage must be higher than this before peak charging can occur.
+    // Battery voltage must be higher than this before peak charging can occur.
+    if (Volts > BATVOLT)
     {
-      if ((highVolts-Volts)>5 || (millis()-chargeTimer)>chargetimeout) // has voltage begun to drop or levelled out?
+      // Detect if we're done charging (battery voltage has levelled out or we've exceeded max charge time)
+      if ((highVolts-Volts) > 5 || (millis()-chargeTimer) > CHARGETIMEOUT)
       {
-        Charged=1;                                            // battery voltage has peaked
-        digitalWrite (Charger,1);                             // turn off current regulator
+        Charged = 1;
+        digitalWrite(Charger, 1);
       }
     } 
   }
 
+  // Battery is not flat and charger is not plugged in. Run the non-battery related firmware
   else
   {
-    //----------------------------------------------------------- GOOD BATTERY speed controller opperates normally ----------------------
-    switch(Cmode)
+    // If data is available, read a two-byte command and process it
+    if (available() > 1)
     {
-      case CMODE_SERIAL:
-        SCmode();
-        break;
-
-      case CMODE_I2C:                                                   // I2C mode via A4(SDA) and A5(SCL)
-        I2Cmode();
-        break;
+      int A = read_one();
+      int B = read_one();
+      processCommand(A, B);
     }
 
-    // --------------------------------------------------------- Code to drive dual "H" bridges --------------------------------------
-    if (Charged==1)                                           // Only power motors if battery voltage is good
+    // Drive the H-bridges
+    if (Charged == 1)
     {
-      if ((millis()-leftoverload)>overloadtime)             
+      // Only drive the left motor if it's been a while since an overload
+      if ((millis()-leftoverload) > OVERLOADTIME)             
       {
-        switch (Leftmode)                                     // if left motor has not overloaded recently
+        switch (Leftmode)
         {
-          case 2:                                               // left motor forward
-            analogWrite(LmotorA,0);
-            analogWrite(LmotorB,LeftPWM);
+          // Reverse
+          case 0:
+            analogWrite(LmotorA, LeftPWM);
+            analogWrite(LmotorB, 0);
             break;
 
-          case 1:                                               // left motor brake
-            analogWrite(LmotorA,LeftPWM);
-            analogWrite(LmotorB,LeftPWM);
+          // Brake
+          case 1:
+            analogWrite(LmotorA, LeftPWM);
+            analogWrite(LmotorB, LeftPWM);
             break;
 
-          case 0:                                               // left motor reverse
-            analogWrite(LmotorA,LeftPWM);
-            analogWrite(LmotorB,0);
+          // Forward
+          case 2:
+            analogWrite(LmotorA, 0);
+            analogWrite(LmotorB, LeftPWM);
             break;
         }
       }
 
-      if ((millis()-rightoverload)>overloadtime)
+      // Only drive the right motor if it's been a while since an overload
+      if ((millis()-rightoverload) > OVERLOADTIME)
       {
-        switch (Rightmode)                                    // if right motor has not overloaded recently
+        switch (Rightmode)
         {
-          case 2:                                               // right motor forward
-            analogWrite(RmotorA,0);
-            analogWrite(RmotorB,RightPWM);
+          // Reverse
+          case 0:
+            analogWrite(RmotorA, RightPWM);
+            analogWrite(RmotorB, 0);
             break;
 
-          case 1:                                               // right motor brake
-            analogWrite(RmotorA,RightPWM);
-            analogWrite(RmotorB,RightPWM);
+          // Brake
+          case 1:
+            analogWrite(RmotorA, RightPWM);
+            analogWrite(RmotorB, RightPWM);
             break;
 
-          case 0:                                               // right motor reverse
-            analogWrite(RmotorA,RightPWM);
-            analogWrite(RmotorB,0);
+          // Forward
+          case 2:
+            analogWrite(RmotorA, 0);
+            analogWrite(RmotorB, RightPWM);
             break;
         }
       } 
     }
-    else                                                      // Battery is flat
+    // Battery is flat, don't drive the motors at all
+    else
     {
-      analogWrite (LmotorA,0);                                // turn off motors
-      analogWrite (LmotorB,0);                                // turn off motors
-      analogWrite (RmotorA,0);                                // turn off motors
-      analogWrite (RmotorB,0);                                // turn off motors
+      analogWrite(LmotorA, 0);
+      analogWrite(LmotorB, 0);
+      analogWrite(RmotorA, 0);
+      analogWrite(RmotorB, 0);
     }
   }
 }
 
+// Initialize the I2C hardware. THis is in a function 
+// so that we can toggle between serial and I2C at runtime.
 void init_i2c()
 {
-  // initialize i2c as slave
+  // initialize I2C as slave
   Wire.begin(I2C_ADDR);
 
-  // set up i2c callbacks
+  // set up I2C callbacks
   Wire.onReceive(receiveI2C);
   Wire.onRequest(sendI2C);
-}
-
-void SCmode()
-{
-  if (Serial.available() > 1)
-  {
-    int A = Serial.read();
-    int B = Serial.read();
-    processCommand(A, B);
-  }
-}
-
-void I2Cmode()
-{
-  if (i2c_incoming_buffer.available() > 1)
-  {
-     int A = read_one();
-     int B = read_one();
-    processCommand(A, B);
-  }
 }
 
 // Incoming i2c data callback
@@ -238,11 +236,46 @@ void receiveI2C(int byteCount)
 void sendI2C()
 {
   if (i2c_outgoing_buffer.available())
-    Wire.write(i2c_outgoing_buffer.dequeue()->value);
+    Wire.write(i2c_outgoing_buffer.dequeue());
   else
-  {
     Wire.write(-1);
+}
+
+int available()
+{
+  if (Cmode == CMODE_SERIAL)
+    return Serial.available();
+  else
+    return i2c_incoming_buffer.available();
+}
+
+int read_one()
+{
+  int data;
+  if (Cmode == CMODE_SERIAL)
+  {
+    do
+    {
+      data = Serial.read();
+    } while (data < 0);
   }
+  else if (Cmode == CMODE_I2C)
+  {
+    // Busy-wait until there is data available
+    while (!i2c_incoming_buffer.available());
+
+    // Grab it
+    data = i2c_incoming_buffer.dequeue();
+  }
+  return data;
+}
+
+void write(byte b)
+{
+  if (Cmode == CMODE_SERIAL)
+    Serial.write(b);
+  else if (Cmode == CMODE_I2C)
+    i2c_outgoing_buffer.enqueue(b);
 }
 
 void flush()
@@ -261,32 +294,6 @@ void flush()
   }
 }
 
-void write(byte b)
-{
-  if (Cmode == CMODE_SERIAL)
-    Serial.write(b);
-  else if (Cmode == CMODE_I2C)
-    i2c_outgoing_buffer.enqueue(b);
-}
-
-int read_one()
-{
-  if (Cmode == CMODE_SERIAL)
-  {
-    do
-    {
-      data = Serial.read();
-    } while (data < 0);
-    return data;
-  }
-  else if (Cmode == CMODE_I2C)
-  {
-    while (!i2c_incoming_buffer.available());
-    data = i2c_incoming_buffer.dequeue()->value;
-    return data;
-  }
-}
-
 void processCommand(byte A, byte B)
 {
   // CH = Change to i2c mode
@@ -300,32 +307,26 @@ void processCommand(byte A, byte B)
   //   right motor mode 0-2
   //   right motor PWM  0-255
 
-  int command = A*256+B;
+  int command = (A << 8) + B;
   switch (command)
   {
-    // This is "CH"; change mode to I2C
-    case 17224:
+    case COMMAND_CH:
       Cmode = CMODE_I2C;
       init_i2c();
-
-      Serial.write("Mode changed.\n");
       break;
 
-    // This is "VO"; a request for voltage
-    case 22095:
+    case COMMAND_VO:
       // read the battery voltage (reads 65 for every volt)
       Volts = analogRead(Battery);
       write(Volts / 256);
       write(Volts % 256);
       break;
 
-    // This is "FL"; flush the buffer
-    case 17996:
+    case COMMAND_FL:
       flush();
       break;
 
-    // This is "AN"; request for the value of the analog pins 1-5
-    case 16718:
+    case COMMAND_AN:
       for (int i = 1; i < 6; i++)
       {
         // Read the 10-bit analog input
@@ -337,24 +338,22 @@ void processCommand(byte A, byte B)
       }
       break;
 
-    // This is "SV"; set the servo positions
-    case 21334:
+    case COMMAND_SV:
       // read 14 bytes of data from the user
       for (int i = 0; i < 15; i++)
         servo[i] = read_one();
 
       // Set the servo positions
-      Servo0.writeMicroseconds(servo[0]*256+servo[1]);
-      Servo1.writeMicroseconds(servo[2]*256+servo[3]);
-      Servo2.writeMicroseconds(servo[4]*256+servo[5]);
-      Servo3.writeMicroseconds(servo[6]*256+servo[7]);
-      Servo4.writeMicroseconds(servo[8]*256+servo[9]);
-      Servo5.writeMicroseconds(servo[10]*256+servo[11]);
-      Servo6.writeMicroseconds(servo[12]*256+servo[13]);
+      Servo0.writeMicroseconds((servo[0]  << 8) + servo[1]);
+      Servo1.writeMicroseconds((servo[2]  << 8) + servo[3]);
+      Servo2.writeMicroseconds((servo[4]  << 8) + servo[5]);
+      Servo3.writeMicroseconds((servo[6]  << 8) + servo[7]);
+      Servo4.writeMicroseconds((servo[8]  << 8) + servo[9]);
+      Servo5.writeMicroseconds((servo[10] << 8) + servo[11]);
+      Servo6.writeMicroseconds((servo[12] << 8) + servo[13]);
       break;
 
-    // This is "HB"; set the PWM data for the motors
-    case 18498:
+    case COMMAND_HB:
       Leftmode  = read_one();
       LeftPWM   = read_one();
       Rightmode = read_one();
