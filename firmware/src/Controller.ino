@@ -5,6 +5,8 @@
 #include "Constants.h"
 #include "fifo.h"
 
+#include "MemoryFree.h"
+
 int Cmode = CMODE;
 Fifo<int> i2c_incoming_buffer;
 Fifo<int> i2c_outgoing_buffer;
@@ -69,7 +71,7 @@ void setup()
   // Setup the comms
   if (Cmode == CMODE_SERIAL) 
   {
-    Serial.begin(Brate);
+    Serial.begin(BRATE);
     Serial.flush();
   } 
   else if (Cmode == CMODE_I2C)
@@ -307,12 +309,29 @@ void processCommand(byte A, byte B)
   //   right motor mode 0-2
   //   right motor PWM  0-255
 
+  int data;
   int command = (A << 8) + B;
   switch (command)
   {
+    case COMMAND_ME:
+      char mem[4];
+      itoa(freeMemory(), mem, 10);
+      Serial.write("Free memory: ");
+      Serial.write(mem);
+      Serial.write("\n");
+      break;
+
     case COMMAND_CH:
-      Cmode = CMODE_I2C;
-      init_i2c();
+      if (Cmode == CMODE_SERIAL)
+      {
+        Cmode = CMODE_I2C;
+        init_i2c();
+      }
+      else if (Cmode == CMODE_I2C)
+      {
+        Cmode = CMODE_SERIAL;
+      }
+      Serial.write("Mode changed\n");
       break;
 
     case COMMAND_VO:

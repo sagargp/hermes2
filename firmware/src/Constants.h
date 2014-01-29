@@ -8,6 +8,7 @@
 #define I2C_ADDR          0x04 // Address for I2C
 
 // Communication command constants. These are computed as (A << 8) + B.
+#define COMMAND_ME       19781 // Get free memory
 #define COMMAND_CH       17224 // Change mode (I2C <--> Serial)
 #define COMMAND_VO       22095 // Get voltage
 #define COMMAND_FL       17996 // Flush buffers
