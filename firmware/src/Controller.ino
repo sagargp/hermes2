@@ -3,6 +3,9 @@
 
 #include "IOpins.h"
 #include "Constants.h"
+#include "fifo.h"
+
+int Cmode = CMODE;
 
 unsigned int  Volts;
 unsigned int  LeftAmps;
@@ -36,6 +39,9 @@ Servo Servo4;
 Servo Servo5;
 Servo Servo6;
 int servo[7];
+
+Fifo<byte> i2c_incoming_buffer;
+Fifo<byte> i2c_outgoing_buffer;
 
 void setup()
 {

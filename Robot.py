@@ -78,7 +78,7 @@ if __name__ == "__main__":
 
       if js_state['b_button']:
         voltage = get_voltage(serial)
-        print "Voltage reads as: %d (%f)" % (voltage, voltage/65.)
+        print "Voltage reads as: %d (%f)" % (voltage, voltage/68.319)
 
       # Change mode to i2c. After this nothing will work any more!
       if js_state['back_button']:
