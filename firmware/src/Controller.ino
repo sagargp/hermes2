@@ -3,17 +3,10 @@
 
 #include "IOpins.h"
 #include "Constants.h"
-#include "fifo.h"
 
-#include "MemoryFree.h"
-
-int Cmode = CMODE;
-Fifo<int> i2c_incoming_buffer;
-Fifo<int> i2c_outgoing_buffer;
-
-unsigned int Volts;
-unsigned int LeftAmps;
-unsigned int RightAmps;
+unsigned int  Volts;
+unsigned int  LeftAmps;
+unsigned int  RightAmps;
 unsigned long chargeTimer;
 unsigned long leftoverload;
 unsigned long rightoverload;
@@ -313,14 +306,6 @@ void processCommand(byte A, byte B)
   int command = (A << 8) + B;
   switch (command)
   {
-    case COMMAND_ME:
-      char mem[4];
-      itoa(freeMemory(), mem, 10);
-      Serial.write("Free memory: ");
-      Serial.write(mem);
-      Serial.write("\n");
-      break;
-
     case COMMAND_CH:
       if (Cmode == CMODE_SERIAL)
       {
