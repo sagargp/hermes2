@@ -5,6 +5,7 @@ import sys
 import serial
 import struct
 import time
+import threading
 
 def get_motor_packet(left_speed, right_speed):
   """
@@ -40,10 +41,11 @@ class Hermes:
   def __init__(self, serial):
     rospy.init_node('hermes2')
     self.joy = rospy.Subscriber('joy', Joy, self.joy_callback)
-    self.serial       = serial
-    self.last_message = None
-    self.last_motor   = None
-    self.voltage_low  = False
+    self.serial = serial
+    self.last_message_timestamp = None
+    self.voltage_low = False
+    self._speed = None
+    self._turn = None
 
   def run(self):
     last_print = time.time()
@@ -68,38 +70,35 @@ class Hermes:
           voltage = 0.0
           rospy.logwarn("Reading voltage didn't work!")
 
+      if self._speed is not None and self._turn is not None:
+        lef_motor = int((self._speed + self._turn)*255)
+        rig_motor = int((self._speed - self._turn)*255)
+
+        if lef_motor >  255: lef_motor = 255
+        if lef_motor < -255: lef_motor = -255
+        if rig_motor >  255: rig_motor = 255
+        if rig_motor < -255: rig_motor = -255
+
+        if abs(lef_motor) < 90: lef_motor = 0
+        if abs(rig_motor) < 90: rig_motor = 0
+
+        self.serial.write(get_motor_packet(lef_motor, rig_motor))
+
       # kill motors if we haven't received a command in 2 seconds
-      if self.last_message is not None and time.time() - self.last_message > 2.0 and not self.voltage_low:
+      if self.last_message_timestamp is not None and time.time() - self.last_message_timestamp > 2.0 and not self.voltage_low:
+        rospy.logwarn("Killing motors because I didn't get a command in 2 seconds")
         self.serial.write(get_motor_packet(0, 0))
 
-      if self.last_motor is not None:
-        self.serial.write(self.last_motor)
-
   def joy_callback(self, joy):
-    self.last_message = time.time()
+    #(a, b, x , y, lb, rb, back, start, guide, left_joy, right_joy, dpad_left, dpad_right, dpad_up, dpad_down) = joy.buttons
+    #(left_x, left_y, left_trigger, right_x, right_y, right_trigger) = joy.axes
 
-    (a, b, x , y, lb, rb, back, start, guide, left_joy, right_joy) = joy.buttons
-    (left_x, left_y, right_x, right_y, right_trigger, left_trigger, dpad_x, dpad_y) = joy.axes
+    #(a, b, x , y, lb, rb, back, start, guide, left_joy, right_joy) = joy.buttons
+    #(left_x, left_y, left_trigger, right_x, right_y, right_trigger, dpad_x, dpad_y) = joy.axes
 
-    left_y  = int(left_y * 255)
-    right_x = int(right_x * 255)
-
-    speed = -left_y
-    turn = right_x
-
-    left_motor  = int((speed+turn)*255)
-    right_motor = int((speed-turn)*255)
-
-    if left_motor > 255: left_motor = 255
-    if left_motor < -255: left_motor = -255
-    if right_motor > 255: right_motor = 255
-    if right_motor < -255: right_motor = -255
-
-    if abs(left_motor) < 90: left_motor = 0
-    if abs(right_motor) < 90: right_motor = 0
-
-    #self.last_motor = get_motor_packet(left_motor, right_motor)
-    self.serial.write(get_motor_packet(left_motor, right_motor))
+    self.last_message_timestamp = time.time()
+    self._speed = -joy.axes[1]
+    self._turn = joy.axes[3]
 
 if __name__ == "__main__":
   serial_port = "/dev/ttyUSB0"

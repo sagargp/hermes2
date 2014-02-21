@@ -9,6 +9,8 @@ class JoyNode:
     self.joy = rospy.Subscriber('joy', Joy, self.joy_callback)
 
   def joy_callback(self, joy):
+    #(a, b, x , y, lb, rb, back, start, guide, left_joy, right_joy, dpad_left, dpad_right, dpad_up, dpad_down) = joy.buttons
+    #(left_x, left_y, left_trigger, right_x, right_y, right_trigger) = joy.axes
     (a, b, x , y, lb, rb, back, start, guide, left_joy, right_joy) = joy.buttons
     (left_x, left_y, left_trigger, right_x, right_y, right_trigger, dpad_x, dpad_y) = joy.axes
 
@@ -17,16 +19,16 @@ class JoyNode:
     right_x = int(right_x * 255)
     right_y = int(right_y * 255)
 
-    rospy.loginfo(("left_joy: ", left_joy))
-    rospy.loginfo(("right_joy: ", right_joy))
-    rospy.loginfo(("left_x: ", left_x ))
-    rospy.loginfo(("left_y: ", left_y))
-    rospy.loginfo(("left_trigger: ", left_trigger))
-    rospy.loginfo(("right_trigger: ", right_trigger))
+    #rospy.loginfo(("left_joy: ", left_joy))
+    #rospy.loginfo(("right_joy: ", right_joy))
+    #rospy.loginfo(("left_x: ", left_x ))
+    #rospy.loginfo(("left_y: ", left_y))
+    #rospy.loginfo(("left_trigger: ", left_trigger))
+    #rospy.loginfo(("right_trigger: ", right_trigger))
     rospy.loginfo(("right_y: ", right_y))
     rospy.loginfo(("right_x: ", right_x))
-    rospy.loginfo(("dpad_x: ", dpad_x))
-    rospy.loginfo(("dpad_y: ", dpad_y))
+    #rospy.loginfo(("dpad_x: ", dpad_x))
+    #rospy.loginfo(("dpad_y: ", dpad_y))
 
 def main():
   joy_node = JoyNode()
