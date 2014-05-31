@@ -3,9 +3,6 @@
 
 #include "IOpins.h"
 #include "Constants.h"
-#include "fifo.h"
-
-int Cmode = CMODE;
 
 unsigned int  Volts;
 unsigned int  LeftAmps;
@@ -40,9 +37,6 @@ Servo Servo5;
 Servo Servo6;
 int servo[7];
 
-Fifo<byte> i2c_incoming_buffer;
-Fifo<byte> i2c_outgoing_buffer;
-
 void setup()
 {
   // Attach all the servos
@@ -68,15 +62,8 @@ void setup()
   digitalWrite(Charger, 1); // disable current regulator to charge battery
 
   // Setup the comms
-  if (Cmode == CMODE_SERIAL) 
-  {
-    Serial.begin(BRATE);
-    Serial.flush();
-  } 
-  else if (Cmode == CMODE_I2C)
-  {
-    init_i2c();
-  }
+  Serial.begin(BRATE);
+  Serial.flush();
 }
 
 void loop()
@@ -213,91 +200,33 @@ void loop()
   }
 }
 
-// Initialize the I2C hardware. THis is in a function 
-// so that we can toggle between serial and I2C at runtime.
-void init_i2c()
-{
-  // initialize I2C as slave
-  Wire.begin(I2C_ADDR);
-
-  // set up I2C callbacks
-  Wire.onReceive(receiveI2C);
-  Wire.onRequest(sendI2C);
-}
-
-// Incoming i2c data callback
-void receiveI2C(int byteCount)
-{
-  int count = byteCount;
-  while (count--)
-    i2c_incoming_buffer.enqueue(Wire.read());
-}
-
-// Request for i2c data callback
-void sendI2C()
-{
-  if (i2c_outgoing_buffer.available())
-    Wire.write(i2c_outgoing_buffer.dequeue());
-  else
-    Wire.write(-1);
-}
-
 int available()
 {
-  if (Cmode == CMODE_SERIAL)
-    return Serial.available();
-  else
-    return i2c_incoming_buffer.available();
+  return Serial.available();
 }
 
 int read_one()
 {
   int data;
-  if (Cmode == CMODE_SERIAL)
+  do
   {
-    do
-    {
-      data = Serial.read();
-    } while (data < 0);
-  }
-  else if (Cmode == CMODE_I2C)
-  {
-    // Busy-wait until there is data available
-    while (!i2c_incoming_buffer.available());
-
-    // Grab it
-    data = i2c_incoming_buffer.dequeue();
-  }
+    data = Serial.read();
+  } while (data < 0);
   return data;
 }
 
 void write(byte b)
 {
-  if (Cmode == CMODE_SERIAL)
-    Serial.write(b);
-  else if (Cmode == CMODE_I2C)
-    i2c_outgoing_buffer.enqueue(b);
+  Serial.write(b);
 }
 
 void flush()
 {
-  if (Cmode == CMODE_SERIAL)
-  {
-    Serial.flush();
-  }
-  else if (Cmode == CMODE_I2C)
-  {
-    while (i2c_outgoing_buffer.available())
-      i2c_outgoing_buffer.dequeue();
-
-    while (i2c_incoming_buffer.available())
-      i2c_incoming_buffer.dequeue();
-  }
+  Serial.flush();
 }
 
 void processCommand(byte A, byte B)
 {
-  // CH = Change to i2c mode
   // VO = get voltage
   // FL = flush serial buffer
   // AN = report Analog inputs 1-5
@@ -312,19 +241,6 @@ void processCommand(byte A, byte B)
   int command = (A << 8) + B;
   switch (command)
   {
-    case COMMAND_CH:
-      if (Cmode == CMODE_SERIAL)
-      {
-        Cmode = CMODE_I2C;
-        init_i2c();
-      }
-      else if (Cmode == CMODE_I2C)
-      {
-        Cmode = CMODE_SERIAL;
-      }
-      Serial.write("Mode changed\n");
-      break;
-
     case COMMAND_VO:
       // read the battery voltage (reads 65 for every volt)
       Volts = analogRead(Battery);
