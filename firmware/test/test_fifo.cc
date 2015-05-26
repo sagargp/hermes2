@@ -1,7 +1,7 @@
 #include <assert.h>
 #include <iostream>
 #include <cstddef>
-#include "../src/fifo.h"
+#include "fifo.h"
 
 using namespace std;
 
