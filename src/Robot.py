@@ -42,6 +42,7 @@ if __name__ == "__main__":
   argparser.add_argument('--tty', nargs=1, help='Serial port')
   argparser.add_argument('--baud', nargs=1, help='Serial baud rate')
   argparser.add_argument('--listen', nargs=1, help='IP:PORT of host that sends the joystick data')
+  argparser.add_argument('--magic', nargs=1, help='Magic voltage divisor', default=68.319, type=float)
   args = argparser.parse_args(sys.argv[1:])
 
   serial_port      = args.tty[0]
@@ -78,7 +79,7 @@ if __name__ == "__main__":
 
       if js_state['b_button']:
         voltage = get_voltage(serial)
-        print "Voltage reads as: %d (%f)" % (voltage, voltage/68.319)
+        print "Voltage reads as: %d (%f)" % (voltage, voltage/args.magic)
 
       # Change mode to i2c. After this nothing will work any more!
       if js_state['back_button']:
