@@ -1,16 +1,19 @@
 #!/usr/bin/env python
-
 import rospy
 from std_msgs.msg import String
+from geometry_msgs.msg import Twist
+from geometry_msgs.msg import Vector3
 
 def talker():
-    pub = rospy.Publisher('chatter', String, queue_size=10)
+    pub = rospy.Publisher('chatter', Twist, queue_size=10)
     rospy.init_node('talker', anonymous=True)
     rate = rospy.Rate(10) # 10hz
+
     while not rospy.is_shutdown():
-        hello_str = "hello world %s" % rospy.get_time()
-        rospy.loginfo(hello_str)
-        pub.publish(hello_str)
+        v = Vector3(1, 1, 1)
+        twist_msg = Twist(v, v)
+        rospy.loginfo(twist_msg)
+        pub.publish(twist_msg)
         rate.sleep()
 
 if __name__ == '__main__':
