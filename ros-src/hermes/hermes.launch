@@ -1,4 +1,5 @@
 <launch>
+  <!--
   <node name="joy1" pkg="joy" type="joy_node" output="screen">
     <param name="dev" value="/dev/input/js1" />
   </node>
@@ -7,6 +8,9 @@
     <remap from="/cmd_vel" to="/turtle1/cmd_vel" />
     <param name="~enable_turbo_button" value="1" />
   </node>
+  -->
 
-  <node name="turtle1" pkg="turtlesim" type="turtlesim_node" />
+  <node name="kb_twist" pkg="teleop_twist_keyboard" type="teleop_twist_keyboard.py" output="screen"/>
+
+  <node name="hermes1" pkg="hermes" type="hermes_platform.py" output="screen"/>
 </launch>
